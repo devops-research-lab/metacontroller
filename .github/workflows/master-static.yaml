@@ -1,8 +1,6 @@
 name: Static checks on master
 on:
-  push:
-    branches:
-    - master
+  push: null
 jobs:
   docker-image-for-linting:
     runs-on: ubuntu-24.04
@@ -11,7 +9,7 @@ jobs:
       uses: actions/checkout@v4
     - uses: actions/setup-go@v5
       with:
-        go-version-file: 'go.mod'
+        go-version-file: go.mod
         cache: true
     - name: Install GoReleaser
       uses: goreleaser/goreleaser-action@v6
@@ -22,8 +20,9 @@ jobs:
     - name: build image
       run: make image
     - name: Save image
-      run: |
-        docker save --output metacontroller-lint.tar localhost/metacontroller:dev
+      run: 'docker save --output metacontroller-lint.tar localhost/metacontroller:dev
+
+        '
     - uses: actions/upload-artifact@v4
       name: Save metacontroller image
       with:
@@ -32,7 +31,8 @@ jobs:
         retention-days: 1
   trivy-scan:
     runs-on: ubuntu-24.04
-    needs: [docker-image-for-linting]
+    needs:
+    - docker-image-for-linting
     steps:
     - name: checkout
       uses: actions/checkout@v4
@@ -41,27 +41,28 @@ jobs:
       with:
         name: metacontroller-lint-image
     - name: Load metacontroller images
-      run: |
-        docker load --input metacontroller-lint.tar
+      run: 'docker load --input metacontroller-lint.tar
+
+        '
     - name: Trivy scan
-      uses: aquasecurity/trivy-action@0.31.0
+      uses: aquasecurity/trivy-action@master
       with:
-        image-ref: 'localhost/metacontroller:dev'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
+        image-ref: localhost/metacontroller:dev
+        format: sarif
+        output: trivy-results.sarif
         exit-code: '1'
         ignore-unfixed: true
-        limit-severities-for-sarif: 'true'
-        vuln-type: 'os,library'
-        severity: 'CRITICAL,HIGH'
+        vuln-type: os,library
+        severity: CRITICAL,HIGH
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
       if: always()
       with:
-        sarif_file: 'trivy-results.sarif'
+        sarif_file: trivy-results.sarif
   dockle-scan:
     runs-on: ubuntu-24.04
-    needs: [docker-image-for-linting]
+    needs:
+    - docker-image-for-linting
     steps:
     - name: checkout
       uses: actions/checkout@v4
@@ -70,17 +71,17 @@ jobs:
       with:
         name: metacontroller-lint-image
     - name: Load metacontroller images
-      run: |
-        docker load --input metacontroller-lint.tar
+      run: 'docker load --input metacontroller-lint.tar
+
+        '
     - name: Dockle scan
       uses: erzz/dockle-action@v1
       with:
-        image: 'localhost/metacontroller:dev'
+        image: localhost/metacontroller:dev
         report-format: sarif
         report-name: dockle-report
     - name: Upload SARIF file
       uses: github/codeql-action/upload-sarif@v3
       if: always()
       with:
-        # Path to SARIF file relative to the root of the repository
         sarif_file: dockle-report.sarif
